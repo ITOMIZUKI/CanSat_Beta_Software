@@ -153,27 +153,27 @@ class Coder:
 
 if __name__ == "__main__":
 
-    # 初期化
+    # init
     tags = {"P": 1, "T": 2, "H": 2, "A": 1}
     coder = Coder(tags)
 
-    # デフォルト設定で送る
+    # send in default setting
     data = {"P": 1.012, "T": 20.3, "H": 20.8, "A": 9.8}
-    encoded_data = coder.encoder("21", data)                # デフォルト設定でエンコード
+    encoded_data = coder.encoder("21", data)                # encode without setting
     print("raw data:", data)
     print("encoded data:", encoded_data)
 
-    flag, decoded_data = coder.decoder(encoded_data)        # デコード
+    flag, decoded_data = coder.decoder(encoded_data)        # decode
     print("flag:", flag)
     print("decoded data:", decoded_data)
     print()
 
-    # タグ"A"の小数点は省かない設定で送る
+    # send, not removing the decimal point of "A"
     data = {"P": 1.013, "T": 20.6, "H": 20.4, "A": 23.9}
-    encoded_data = coder.encoder("30", data, tag_decimal=("A",))    # tag_decimal引数に"A"を指定してエンコード
+    encoded_data = coder.encoder("30", data, tag_decimal=("A",))    # encode, specifying tag_decimal argument
     print("raw data:", data)
     print("encoded data:", encoded_data)
 
-    flag, decoded_data = coder.decoder(encoded_data)                # デコード
+    flag, decoded_data = coder.decoder(encoded_data)                # decode
     print("flag:", flag)
     print("decoded data:", decoded_data)
