@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import smbus
-import time
+from time import time, sleep
 
 # A class (python2) that acquires data from I2C from Strawberry Linux's "MPU-9250"
 # https://strawberry-linux.com/catalog/items?code=12250
@@ -62,17 +62,17 @@ class SL_MPU9250:
             self.bus.write_i2c_block_data(self.addrAK8963, 0x0B, [0x01])    
         self.bus.write_i2c_block_data(self.address, 0x6B, [0x80])
         self.MAG_ACCESS = False
-        time.sleep(0.1)     
+        sleep(0.1)     
 
     # Function to set registers as sensing enable.
     def powerWakeUp(self):
         # PWR_MGMT_1 clear.
         self.bus.write_i2c_block_data(self.address, self.REG_PWR_MGMT_1, [0x00])
-        time.sleep(0.1)
+        sleep(0.1)
         # Make the magnetic sensor function (AK 8963) accessible by I2C(BYPASS_EN=1)
         self.bus.write_i2c_block_data(self.address, self.REG_INT_PIN_CFG, [0x02])
         self.MAG_ACCESS = True
-        time.sleep(0.1)
+        sleep(0.1)
 
     # Function to set magnetometer sensor register.
     def setMagRegister(self, _mode, _bit):      
@@ -130,7 +130,7 @@ class SL_MPU9250:
 
         self.bus.write_i2c_block_data(self.address, self.REG_ACCEL_CONFIG1, [_data])
         self.accelCoefficient   = self.accelRange / float(0x8000)
-        time.sleep(0.1)
+        sleep(0.1)
 
         # Reset offset value (so that the past offset value is not inherited)
         self.offsetAccelX       = 0
@@ -160,7 +160,7 @@ class SL_MPU9250:
 
         self.bus.write_i2c_block_data(self.address, self.REG_GYRO_CONFIG, [_data])
         self.gyroCoefficient    = self.gyroRange / float(0x8000)
-        time.sleep(0.1)
+        sleep(0.1)
 
         # Reset offset value (so that the past offset value is not inherited)
         self.offsetGyroX        = 0
@@ -210,7 +210,7 @@ class SL_MPU9250:
             else:                               # output 16bit
                 _writeData      = 0x11
             self.bus.write_i2c_block_data(self.addrAK8963, 0x0A, [_writeData])
-            time.sleep(0.01)
+            sleep(0.01)
 
         elif self.MAG_MODE==self.MAG_MODE_SERIAL_1 or self.MAG_MODE==self.MAG_MODE_SERIAL_2:
             status  = self.bus.read_i2c_block_data(self.addrAK8963, 0x02 ,1)
@@ -229,7 +229,7 @@ class SL_MPU9250:
         status  = self.bus.read_i2c_block_data(self.addrAK8963, 0x02 ,1)
         while (status[0] & 0x01) != 0x01:
             # Wait until data ready state.
-            time.sleep(0.01)
+            sleep(0.01)
             status  = self.bus.read_i2c_block_data(self.addrAK8963, 0x02 ,1)
 
         # read data.
@@ -265,14 +265,14 @@ class SL_MPU9250:
         print ("start mag sensor self test")
         self.setMagRegister('SELF_TEST','16bit')
         self.bus.write_i2c_block_data(self.addrAK8963, 0x0C, [0x40])
-        time.sleep(1.0)
+        sleep(1.0)
         data = self.getMag()
 
         print (data)
 
         self.bus.write_i2c_block_data(self.addrAK8963, 0x0C, [0x00])
         self.setMagRegister('POWER_DOWN','16bit')
-        time.sleep(1.0)
+        sleep(1.0)
         print ("end mag sensor self test")
         return
 
@@ -329,10 +329,10 @@ class SL_MPU9250:
             name: False ->only return tuple with data
                   True  ->return dictionary with data and its name
             '''
-            now     = time.time()
-            acc     = sensor.getAccel()
-            gyr     = sensor.getGyro()
-            mag     = sensor.getMag()
+            now     = time()
+            acc     = self.getAccel()
+            gyr     = self.getGyro()
+            mag     = self.getMag()
             print ("%+8.7f" % acc[0] + " ",)
             print ("%+8.7f" % acc[1] + " ",)
             print ("%+8.7f" % acc[2] + " ",)
@@ -354,11 +354,11 @@ class SL_MPU9250:
             else:
                 return data
 
-            sleepTime       = 0.1 - (time.time() - now)
+            sleepTime       = 0.1 - (time() - now)
             if sleepTime < 0.0:
-                continue
-            time.sleep(sleepTime)
-    }
+                pass
+            sleep(sleepTime)
+    
 
 if __name__ == "__main__":
         sensor  = SL_MPU9250(0x68,1)
