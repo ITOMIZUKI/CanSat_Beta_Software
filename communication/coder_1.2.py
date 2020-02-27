@@ -17,7 +17,7 @@ class Coder:
         """
         self.tags = tags            # dict
         self.packet = packet        # int
-        self.decimal = {}
+        self.decimal = {}           # dict
         
         # init all values of self.decimal as False
         # this values are changed when a decimal point is detected in encoded data
@@ -57,6 +57,8 @@ class Coder:
                 if "A" <= data[0] <= "z":
                     self.find_tag(data)
                     break
+
+                # case in which head of data has a decimal point
                 elif data[0] == ".":
                     self.decimal[tag] = True
 
@@ -75,18 +77,19 @@ class Coder:
     def reshape_data(self, data:list, tag:str)-> "return reshape data of float":
         """
         data: list of data, whose each number is str type
-        index: index to insert "."
+        tag: a tag corresponded to given data
         --------------------------------------------------
         return reshaped data of float
         """
 
+        # check each value of self.decimal
         if self.decimal[tag]:
-            self.decimal[tag] = False
+            self.decimal[tag] = False               # reset
         else:
-            data.insert(self.tags[tag], ".")
+            data.insert(self.tags[tag], ".")        # insert a decimal point at a default point
 
-        data_reshaped = "".join(data)
-        return float(data_reshaped)
+        data_reshaped = "".join(data)               # list --> str
+        return float(data_reshaped)                 # str  --> float
 
 
     def encoder(self, flag:str, tag_data:dict, tag_decimal:tuple=tuple())-> "encoded data:str":
