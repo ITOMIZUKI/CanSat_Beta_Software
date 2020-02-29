@@ -671,7 +671,12 @@ class Gps:
 
 if __name__ == "__main__":
     
-    sensors = {0x76: Bme280, 0x39: Apds9301, 0x68: Mpu9250, "/dev/ttyUSB0": Gps}
+    ADDR_BME280 = 0x76
+    ADDR_APDS9301 = 0x39
+    ADDR_MPU9250 = 0x68
+    SERIAL_PORT_GPS = "/dev/ttyUSB0"
+
+    sensors = {ADDR_BME280: Bme280, ADDR_APDS9301: Apds9301, ADDR_MPU9250: Mpu9250, SERIAL_PORT_GPS: Gps}
     logger = Logger(sensors)
 
     while True:
