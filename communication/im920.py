@@ -34,6 +34,12 @@ class Im920:
         self.buf_write = self.ser.out_waiting
 
     def _write(self, command:str, data:str):
+        """
+        command: a command of IM920
+        data: data to send, if no data, then specify it as ""
+        ---------------------------------------------------------
+        this method simply writes out command and data into a IM920.
+        """
         self.ser.reset_output_buffer()                      # remove noises
 
         try:
@@ -45,14 +51,26 @@ class Im920:
             return 1
 
     def _edit_setting(self, command:str, data:str):
+        """
+        command: a command of IM920
+        data: data to send, if no data, then specify it as ""
+        ---------------------------------------------------------
+        this method writes out command and data into a IM920.
+        the command is one that edits internal setting of a IM920.
+        """
         self._write("ENWR", "")
         self._write(command, data)
         return self._write("DSWR", "")
 
     # id
     def set_id(self, id:str):
+        """
+        id: a decimal id of another IM920, which is written on the back
+        ----------------------------------------------------------------
+        this method sets a device with specified id as a communicatable device. 
+        """
+        # change a decimal id into a hexadecimal id formatted
         id = hex(int(id))[2:]
-
         while len(id) == 4:
             id = "0" + id
 
