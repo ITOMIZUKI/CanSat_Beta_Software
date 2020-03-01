@@ -33,6 +33,42 @@ class Im920:
         self.buf_read = self.ser.in_waiting
         self.buf_write = self.ser.out_waiting
 
+    def _write(self, command:str, data:str):
+        self.ser.reset_output_buffer()                      # remove noises
+
+        try:
+            data = command + data + Im920.TERMINATOR
+            self.ser.write(data.encode(Im920.ENCODING), timeout=self.timeout_write)
+            self.ser.flush()                                # wait until all data is written
+            return 0
+        except:
+            return 1
+
+    def _edit_setting(self, command:str, data:str):
+        self._write("ENWR", "")
+        self._write(command, data)
+        return self._write("DSWR", "")
+
+    # id
+    def set_id(self, id:str):
+        id = hex(int(id))[2:]
+
+        while len(id) == 4:
+            id = "0" + id
+
+        return self._edit_setting("SRID", id)
+
+    def clean_id(self):
+        return self._edit_setting("ERID", "")
+
+    # node
+    def set_node(self, node:str):
+        return self._edit_setting("STNN", node)
+
+    # channel
+    def set_channel(self, channel:str):
+        return self._edit_setting("STCH", channel)
+
     def send(self, data:str)-> "if done well, 0:int, else 1:int":
         """
         data: data to send, whose size has to be less than 64 bytes.
@@ -40,15 +76,7 @@ class Im920:
         this method sends specified data through IM920.
         returns 0, if the execution is done well, else returns 1.
         """
-        self.ser.reset_output_buffer()                      # remove noises
-        
-        try:
-            data = "TXDA" + data + Im920.TERMINATOR
-            self.ser.write(data.encode(Im920.ENCODING), timeout=self.timeout_write)
-            self.ser.flush()                                # wait until all data is written
-            return 0
-        except:
-            return 1
+        return self._write("TXDA", data)   
 
     def receive(self, raw=True)-> "return received data":
         """
