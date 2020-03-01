@@ -1,58 +1,104 @@
-# -*- Coding: utf-8 -*-
-"""
-This module is for man-machine interface
-this module deals with IM920, onboard LED and other switches
-このモジュールは通信系とかの関数があるよ
-"""
-
 import time
 import serial
-import codecs
+import re
 import os
-import RPi.GPIO as GPIO
 
-class IM920:
-    ser = serial.Serial("/dev/ttyUSB0",19200)
-    #ラズパイのUSBデバイス名を変更したからこのデバイス名を指定する．
-    #GPIO.setmode(GPIO.BOARD)
-    pin = 7  #pin interrupt for button shutdown
-    #GPIO.setmode(GPIO.BOARD)
-    #GPIO.setup(pin,GPIO.IN,GPIO.PUD_UP)
+class Im920:
 
-    #CLEAN BUFFER FOR SECURE
-    def clean_buf(self):
-        while(self.ser.inWaiting()):
-            self.wastebox = self.ser.readline()
+    TERMINATOR = b"\r\n"
+    ENCODING = "ascii"
 
-    def shutdown(self):
-        print("shutdown by command...")
-        time.sleep(1)
-        os.system("sudo shutdown -h now")
+    def __init__(self, serial_port:str, baudrate:int=19200, timeout_read:float=10.0, timeout_write:float=10.0):
+        """
+        serial_port: port name a IM920 is set on
+        baudrate: baudrate of IM920
+        timeout_read: a read timeout value (changeable later)
+        timeout_write: a write timeout value (changeable later)
+        ----------------------------------------------------------------------------
+        using this class, a device can communicate with other devices which have IM920s on board.
+        a user can send or recieve data by communicating with a IM920 in serial communication.
+        """
 
-    #RECEIVE
-    def im920_receive(self):
-        if(self.ser.inWaiting()):
-            stock = (codecs.decode(self.ser.readline()).split(',')[2]).split(':')[1]
-            print(stock)
-            if(stock == 'shutdown\r\n'):
-                self.shutdown()
+        # # timeout can be changed later
+        self.timeout_read = timeout_read
+        self.timeout_write = timeout_write
 
-    #"TXDT" AND "\r\n" ARE IM920'S COMMANDS
-    def im920_send(self, command):
-        '''
-        この関数の引数に，送信したい内容を入れて呼び出せば，IM920で送信できる
-        '''
-        self.ser.write(str.encode("TXDA"+str(command)+"\r\n"))
-        time.sleep(1)
-        self.clean_buf()
+        self.ser = serial.Serial(serial_port, baudrate=baudrate, timeout=self.timeout_read, write_timeout=self.timeout_write)
 
-    def callBackTest(self, channel):
-        self.shutdown()
+        # reset all data in a buffer
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
 
-    #GPIO.add_event_detect(pin,GPIO.FALLING,callback = callBackTest,bouncetime = 300)
+        # enable to refer state of a buffer
+        self.buf_read = self.ser.in_waiting
+        self.buf_write = self.ser.out_waiting
+
+    def send(self, data:str)-> "if done well, 0:int, else 1:int":
+        """
+        data: data to send, whose size has to be less than 64 bytes.
+        ------------------------------------------
+        this method sends specified data through IM920.
+        returns 0, if the execution is done well, else returns 1.
+        """
+        self.ser.reset_output_buffer()                      # remove noises
+        
+        try:
+            data = "TXDA" + data + Im920.TERMINATOR
+            self.ser.write(data.encode(Im920.ENCODING), timeout=self.timeout_write)
+            self.ser.flush()                                # wait until all data is written
+            return 0
+        except:
+            return 1
+
+    def receive(self, raw=True)-> "return received data":
+        """
+        raw: True or False, depending on circumstances
+        ---------------------------------------------
+        this method returns recieved data.
+        if raw is True, then it returns data of list.
+        index 0: node number
+        index 1: ID number of IM920 that send data
+        index 2: RSSI value
+        index 3: data
+        it returns only data if raw is False.
+        """
+
+        data_list = self._receive2list()
+
+        if raw:
+            return data_list
+        else:
+            return data_list[3]
+
+    def receive_lines(self, num_lines, raw=True)-> "return received data":
+        """
+        num_lines: number of lines to read
+        raw: True or False, depending on circumstances
+        ---------------------------------------------
+        this method returns recieved data of multi lines.
+        if raw is True, then it returns data of list.
+        index 0: node number
+        index 1: ID number of IM920 that send data
+        index 2: RSSI value
+        index 3: data
+        it returns only data if raw is False.
+        """
+        
+        data_lines = []
+        for _ in range(num_lines):
+            if self.ser.in_waiting:
+                break
+            data_lines.append(self.receive(raw=raw))
+
+        return data_lines
+
+
+    def _receive2list(self):
+        data = self.ser.read_until(expected=Im920.TERMINATOR, timeout=self.timeout_read).decode("utf-8")[:-2]    # remove CRLF
+        return re.split("[,:]", data)                                                                            # split data and change it into a list
+
 
 if __name__ == "__main__":
-    im920 = IM920()
-    for i in range(4):
-        print ("test" + str(i))
-        im920.im920_send("test" + str(i))
+    SERIAL_PORT_IM920 = "/dev/ttyUSB1"
+    im920 = Im920(SERIAL_PORT_IM920)
+    im920.send("hello")
