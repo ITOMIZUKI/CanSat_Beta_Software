@@ -118,16 +118,16 @@ class Bme280:
         self.writeReg(0xF5, config_reg)
 
     # methods for reading sensors's data
-    def read(self, name=False)->"return sensor data, (press, temp, humid)":
+    def read(self, name:bool=False)->"return sensor data, (press, temp, humid)":
         """
         name: False -> only return tuple with data
               True  -> return dictionary with data and its name
         """
 
         if name:
-            return self._read_with_name
+            return self._read_with_name()
         else:
-            return self._read_no_name
+            return self._read_no_name()
 
     def _read_no_name(self):
         data = []
@@ -140,7 +140,9 @@ class Bme280:
         return self.read_press(pres_raw), self.read_temp(temp_raw), self.read_humid(hum_raw)
 
     def _read_with_name(self):
-        return dict(self.address, self._read_no_name)
+        data_name = self.data_name
+        data = self._read_no_name()
+        return dict([[data_name[i], data[i]] for i in range(len(data_name))])
 
     def read_press(self, adc_P):
         self.t_fine
@@ -224,7 +226,7 @@ class Apds9301:
 
         self.bus = SMBus(bus_number)
         self.address = address
-        self.data_name = "lux", 
+        self.data_name = "lux"
 
         self.set_power(True)
         self.set_timing(True, 0)
@@ -259,9 +261,9 @@ class Apds9301:
     def read(self, name=False):
 
         if name:
-            return dict(self.data_name, (self.read_lux, ))
+            return dict([[self.data_name, self.read_lux()]])
         else:
-            return self.read_lux, 
+            return self.read_lux(), 
 
     def read_lux(self):
 
@@ -292,336 +294,290 @@ class Apds9301:
 
 
 class Mpu9250:
-    # Constant definition
-    REG_PWR_MGMT_1      = 0x6B
-    REG_INT_PIN_CFG     = 0x37
-    REG_GYRO_CONFIG     = 0x1B
-    REG_ACCEL_CONFIG1   = 0x1C
-    REG_ACCEL_CONFIG2   = 0x1D
 
-    MAG_MODE_POWERDOWN  = 0         # Magnetometric sensor power down
-    MAG_MODE_SERIAL_1   = 1         # Magnetometric sensor 8Hz Continuous measurement mode
-    MAG_MODE_SERIAL_2   = 2         # Magnetometric sensor 100Hz Continuous measurement mode
-    MAG_MODE_SINGLE     = 3         # Magnetometric sensor Single measurement mode
-    MAG_MODE_EX_TRIGER  = 4         # Magnetometric sensor Trigger measurement mode
-    MAG_MODE_SELF_TEST  = 5         # Magnetometric sensor Self test mode
+    ## AK8963 I2C slave address
+    AK8963_SLAVE_ADDRESS = 0x0C
+    ## Device id
+    DEVICE_ID            = 0x71
 
-    MAG_ACCESS          = False     # Magnetometric sensor access enable/disable
-    MAG_MODE            = 0         # Magnetometric sensor mode
-    MAG_BIT             = 14        # Magnetometric sensor output bit number of figures
+    ''' MPU-9250 Register Addresses '''
+    ## sample rate driver
+    SMPLRT_DIV     = 0x19
+    CONFIG         = 0x1A
+    GYRO_CONFIG    = 0x1B
+    ACCEL_CONFIG   = 0x1C
+    ACCEL_CONFIG_2 = 0x1D
+    LP_ACCEL_ODR   = 0x1E
+    WOM_THR        = 0x1F
+    FIFO_EN        = 0x23
+    I2C_MST_CTRL   = 0x24
+    I2C_MST_STATUS = 0x36
+    INT_PIN_CFG    = 0x37
+    INT_ENABLE     = 0x38
+    INT_STATUS     = 0x3A
+    ACCEL_OUT      = 0x3B
+    TEMP_OUT       = 0x41
+    GYRO_OUT       = 0x43
 
-    offsetRoomTemp      = 0
-    tempSensitivity     = 333.87
-    gyroRange           = 250       # 'dps' 00:250, 01:500, 10:1000, 11:2000
-    accelRange          = 2         # 'g' 00:+-2, 01:+-4, 10:+-8, 11:+-16
-    magRange            = 4912      # 'μT'  
+    I2C_MST_DELAY_CTRL = 0x67
+    SIGNAL_PATH_RESET  = 0x68
+    MOT_DETECT_CTRL    = 0x69
+    USER_CTRL          = 0x6A
+    PWR_MGMT_1         = 0x6B
+    PWR_MGMT_2         = 0x6C
+    FIFO_R_W           = 0x74
+    WHO_AM_I           = 0x75
 
-    offsetAccelX        = 0.0
-    offsetAccelY        = 0.0
-    offsetAccelZ        = 0.0
-    offsetGyroX         = 0.0
-    offsetGyroY         = 0.0
-    offsetGyroZ         = 0.0
+    ## Gyro Full Scale Select 250dps
+    GFS_250  = 0x00
+    ## Gyro Full Scale Select 500dps
+    GFS_500  = 0x01
+    ## Gyro Full Scale Select 1000dps
+    GFS_1000 = 0x02
+    ## Gyro Full Scale Select 2000dps
+    GFS_2000 = 0x03
+    ## Accel Full Scale Select 2G
+    AFS_2G   = 0x00
+    ## Accel Full Scale Select 4G
+    AFS_4G   = 0x01
+    ## Accel Full Scale Select 8G
+    AFS_8G   = 0x02
+    ## Accel Full Scale Select 16G
+    AFS_16G  = 0x03
 
-    # Constructor
-    def __init__(self, address=0x68, bus_number=1):
-        self.address    = address
-        self.bus        = SMBus(bus_number)
-        self.addrAK8963 = 0x0C
+    # AK8963 Register Addresses
+    AK8963_ST1        = 0x02
+    AK8963_MAGNET_OUT = 0x03
+    AK8963_CNTL1      = 0x0A
+    AK8963_CNTL2      = 0x0B
+    AK8963_ASAX       = 0x10
 
-        self.data_name = "acc_x", "acc_y", "acc_z", "gyr_x", "gyr_y", "gyr_z", "mag_x", "mag_y", "mag_z"
+    # CNTL1 Mode select
+    ## Power down mode
+    AK8963_MODE_DOWN   = 0x00
+    ## One shot data output
+    AK8963_MODE_ONE    = 0x01
 
-        # Sensor initialization
-        self.resetRegister()
-        self.powerWakeUp()
+    ## Continous data output 8Hz
+    AK8963_MODE_C8HZ   = 0x02
+    ## Continous data output 100Hz
+    AK8963_MODE_C100HZ = 0x06
 
-        self.gyroCoefficient    = self.gyroRange  / float(0x8000)   # coefficient : sensed decimal val to dps val.
-        self.accelCoefficient   = self.accelRange / float(0x8000)   # coefficient : sensed decimal val to g val.
-        self.magCoefficient16   = self.magRange   / 32760.0         # confficient : sensed decimal val to μT val (16bit)
-        self.magCoefficient14   = self.magRange   / 8190.0          # confficient : sensed decimal val to μT val (14bit)
+    # Magneto Scale Select
+    ## 14bit output
+    AK8963_BIT_14 = 0x00
+    ## 16bit output
+    AK8963_BIT_16 = 0x01
 
-    # Function to initialize registers.
-    def resetRegister(self):
-        if self.MAG_ACCESS == True:
-            self.bus.write_i2c_block_data(self.addrAK8963, 0x0B, [0x01])    
-        self.bus.write_i2c_block_data(self.address, 0x6B, [0x80])
-        self.MAG_ACCESS = False
-        sleep(0.1)     
+    ## smbus
+    bus = SMBus(1)
 
-    # Function to set registers as sensing enable.
-    def powerWakeUp(self):
-        # PWR_MGMT_1 clear.
-        self.bus.write_i2c_block_data(self.address, self.REG_PWR_MGMT_1, [0x00])
-        sleep(0.1)
-        # Make the magnetic sensor function (AK 8963) accessible by I2C(BYPASS_EN=1)
-        self.bus.write_i2c_block_data(self.address, self.REG_INT_PIN_CFG, [0x02])
-        self.MAG_ACCESS = True
-        sleep(0.1)
+    ## Constructor
+    #  @param [in] address MPU-9250 I2C slave address default:0x68
+    def __init__(self, address):
+        self.address = address
+        self.configMPU9250(Mpu9250.GFS_250, Mpu9250.AFS_2G)
+        self.configAK8963(Mpu9250.AK8963_MODE_C8HZ, Mpu9250.AK8963_BIT_16)
+        
+        self.data_name = ("acc_x", "acc_y", "acc_z", 
+                        "gyro_x", "gyro_y", "gyro_z",
+                        "mag_x", "mag_y", "mag_z")
 
-    # Function to set magnetometer sensor register.
-    def setMagRegister(self, _mode, _bit):      
-        if self.MAG_ACCESS == False:
-            # Raise an exception because access to the magnetic sensor is not enabled.
-            raise Exception('001 Access to a sensor is invalid.')
-
-        _writeData  = 0x00
-        # Setting measurement mode
-        if _mode=='8Hz':            # Continuous measurement mode 1
-            _writeData      = 0x02
-            self.MAG_MODE   = self.MAG_MODE_SERIAL_1
-        elif _mode=='100Hz':        # Continuous measurement mode 2
-            _writeData      = 0x06
-            self.MAG_MODE   = self.MAG_MODE_SERIAL_2
-        elif _mode=='POWER_DOWN':   # Power down mode
-            _writeData      = 0x00
-            self.MAG_MODE   = self.MAG_MODE_POWERDOWN
-        elif _mode=='EX_TRIGER':    # Trigger measurement mode
-            _writeData      = 0x04
-            self.MAG_MODE   = self.MAG_MODE_EX_TRIGER
-        elif _mode=='SELF_TEST':    # self test mode
-            _writeData      = 0x08
-            self.MAG_MODE   = self.MAG_MODE_SELF_TEST
-        else:   # _mode='SINGLE'    # single measurment mode
-            _writeData      = 0x01
-            self.MAG_MODE   = self.MAG_MODE_SINGLE
-
-        #　output bit number 
-        if _bit=='14bit':           # output 14bit
-            _writeData      = _writeData | 0x00
-            self.MAG_BIT    = 14
-        else:   # _bit='16bit'      # output 16bit
-            _writeData      = _writeData | 0x10
-            self.MAG_BIT    = 16
-
-        self.bus.write_i2c_block_data(self.addrAK8963, 0x0A, [_writeData])
-
-    # Function to set measurement range of acceleration.Measurement granularity becomes rough in wide range.
-    # val = 16, 8, 4, 2(default)
-    def setAccelRange(self, val, _calibration=False):
-        # +-2g (00), +-4g (01), +-8g (10), +-16g (11)
-        if val==16 :
-            self.accelRange     = 16
-            _data               = 0x18
-        elif val==8 :
-            self.accelRange     = 8
-            _data               = 0x10
-        elif val==4 :
-            self.accelRange     = 4
-            _data               = 0x08
+    ## Search Device
+    #  @param [in] self The object pointer.
+    #  @retval true device connected
+    #  @retval false device error
+    def searchDevice(self):
+        who_am_i = Mpu9250.bus.read_byte_data(self.address, Mpu9250.WHO_AM_I)
+        if(who_am_i == Mpu9250.DEVICE_ID):
+            return True
         else:
-            self.accelRange     = 2
-            _data               = 0x00
+            return False
 
-        self.bus.write_i2c_block_data(self.address, self.REG_ACCEL_CONFIG1, [_data])
-        self.accelCoefficient   = self.accelRange / float(0x8000)
+    ## Configure MPU-9250
+    #  @param [in] self The object pointer.
+    #  @param [in] gfs Gyro Full Scale Select(default:Mpu9250.GFS_250[+250dps])
+    #  @param [in] afs Accel Full Scale Select(default:Mpu9250.AFS_2G[2g])
+    def configMPU9250(self, gfs, afs):
+        if gfs == Mpu9250.GFS_250:
+            self.gres = 250.0/32768.0
+        elif gfs == Mpu9250.GFS_500:
+            self.gres = 500.0/32768.0
+        elif gfs == Mpu9250.GFS_1000:
+            self.gres = 1000.0/32768.0
+        else:  # gfs == Mpu9250.GFS_2000
+            self.gres = 2000.0/32768.0
+
+        if afs == Mpu9250.AFS_2G:
+            self.ares = 2.0/32768.0
+        elif afs == Mpu9250.AFS_4G:
+            self.ares = 4.0/32768.0
+        elif afs == Mpu9250.AFS_8G:
+            self.ares = 8.0/32768.0
+        else: # afs == Mpu9250.AFS_16G:
+            self.ares = 16.0/32768.0
+
+        # sleep off
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.PWR_MGMT_1, 0x00)
+        sleep(0.1)
+        # auto select clock source
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.PWR_MGMT_1, 0x01)
+        sleep(0.1)
+        # DLPF_CFG
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.CONFIG, 0x03)
+        # sample rate divider
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.SMPLRT_DIV, 0x04)
+        # gyro full scale select
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.GYRO_CONFIG, gfs << 3)
+        # accel full scale select
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.ACCEL_CONFIG, afs << 3)
+        # A_DLPFCFG
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.ACCEL_CONFIG_2, 0x03)
+        # BYPASS_EN
+        Mpu9250.bus.write_byte_data(self.address, Mpu9250.INT_PIN_CFG, 0x02)
         sleep(0.1)
 
-        # Reset offset value (so that the past offset value is not inherited)
-        self.offsetAccelX       = 0
-        self.offsetAccelY       = 0
-        self.offsetAccelZ       = 0
+    ## Configure AK8963
+    #  @param [in] self The object pointer.
+    #  @param [in] mode Magneto Mode Select(default:Mpu9250.AK8963_MODE_C8HZ[Continous 8Hz])
+    #  @param [in] mfs Magneto Scale Select(default:Mpu9250.AK8963_BIT_16[16bit])
+    def configAK8963(self, mode, mfs):
+        if mfs == Mpu9250.AK8963_BIT_14:
+            self.mres = 4912.0/8190.0
+        else: #  mfs == Mpu9250.AK8963_BIT_16:
+            self.mres = 4912.0/32760.0
 
-        # In fact I think that it is better to calibrate. But it took time so gave up.
-        if _calibration == True:
-            self.calibAccel(1000)
-        return
+        Mpu9250.bus.write_byte_data(Mpu9250.AK8963_SLAVE_ADDRESS, Mpu9250.AK8963_CNTL1, 0x00)
+        sleep(0.01)
 
-    # Function to set measurement range of gyro. Measurement granularity becomes rough in wide range.
-    # val= 2000, 1000, 500, 250(default)
-    def setGyroRange(self, val, _calibration=False):
-        if val==2000:
-            self.gyroRange      = 2000
-            _data               = 0x18
-        elif val==1000:
-            self.gyroRange      = 1000
-            _data               = 0x10
-        elif val==500:
-            self.gyroRange      = 500
-            _data               = 0x08
+        # set read FuseROM mode
+        Mpu9250.bus.write_byte_data(Mpu9250.AK8963_SLAVE_ADDRESS, Mpu9250.AK8963_CNTL1, 0x0F)
+        sleep(0.01)
+
+        # read coef data
+        data = Mpu9250.bus.read_i2c_block_data(Mpu9250.AK8963_SLAVE_ADDRESS, Mpu9250.AK8963_ASAX, 3)
+
+        self.magXcoef = (data[0] - 128) / 256.0 + 1.0
+        self.magYcoef = (data[1] - 128) / 256.0 + 1.0
+        self.magZcoef = (data[2] - 128) / 256.0 + 1.0
+
+        # set power down mode
+        Mpu9250.bus.write_byte_data(Mpu9250.AK8963_SLAVE_ADDRESS, Mpu9250.AK8963_CNTL1, 0x00)
+        sleep(0.01)
+
+        # set scale&continous mode
+        Mpu9250.bus.write_byte_data(Mpu9250.AK8963_SLAVE_ADDRESS, Mpu9250.AK8963_CNTL1, (mfs<<4|mode))
+        sleep(0.01)
+
+    ## brief Check data ready
+    #  @param [in] self The object pointer.
+    #  @retval true data is ready
+    #  @retval false data is not ready
+    def checkDataReady(self):
+        drdy = Mpu9250.bus.read_byte_data(self.address, Mpu9250.INT_STATUS)
+        if drdy & 0x01:
+            return True
         else:
-            self.gyroRange      = 250
-            _data               = 0x00
+            return False
 
-        self.bus.write_i2c_block_data(self.address, self.REG_GYRO_CONFIG, [_data])
-        self.gyroCoefficient    = self.gyroRange / float(0x8000)
-        sleep(0.1)
+    ## Read accelerometer
+    #  @param [in] self The object pointer.
+    #  @retval x : x-axis data
+    #  @retval y : y-axis data
+    #  @retval z : z-axis data
+    def readAccel(self):
+        data = Mpu9250.bus.read_i2c_block_data(self.address, Mpu9250.ACCEL_OUT, 6)
+        x = self.dataConv(data[1], data[0])
+        y = self.dataConv(data[3], data[2])
+        z = self.dataConv(data[5], data[4])
 
-        # Reset offset value (so that the past offset value is not inherited)
-        self.offsetGyroX        = 0
-        self.offsetGyroY        = 0
-        self.offsetGyroZ        = 0
+        x = round(x*self.ares, 3)
+        y = round(y*self.ares, 3)
+        z = round(z*self.ares, 3)
 
-        # In fact I think that it is better to calibrate. But it took time so gave up.
-        if _calibration == True:
-            self.calibGyro(1000)
-        return
+        return x, y, z
 
-    # Function to set LowPassFilter of acceleration sensor.
-    # def setAccelLowPassFilter(self,val):      
+    ## Read gyro
+    #  @param [in] self The object pointer.
+    #  @retval x : x-gyro data
+    #  @retval y : y-gyro data
+    #  @retval z : z-gyro data
+    def readGyro(self):
+        data = Mpu9250.bus.read_i2c_block_data(self.address, Mpu9250.GYRO_OUT, 6)
 
-    def selfTestMag(self):
-        print ("start mag sensor self test")
-        self.setMagRegister('SELF_TEST','16bit')
-        self.bus.write_i2c_block_data(self.addrAK8963, 0x0C, [0x40])
-        sleep(1.0)
-        data = self.read_mag()
+        x = self.dataConv(data[1], data[0])
+        y = self.dataConv(data[3], data[2])
+        z = self.dataConv(data[5], data[4])
 
-        print (data)
+        x = round(x*self.gres, 3)
+        y = round(y*self.gres, 3)
+        z = round(z*self.gres, 3)
 
-        self.bus.write_i2c_block_data(self.addrAK8963, 0x0C, [0x00])
-        self.setMagRegister('POWER_DOWN','16bit')
-        sleep(1.0)
-        print ("end mag sensor self test")
-        return
+        return x, y, z
 
-    # Calibrate the acceleration sensor
-    # I think that you really need to consider latitude, altitude, terrain, etc., but I briefly thought about it.
-    # It is a premise that gravity is correctly applied in the direction of the z axis and acceleration other than gravity is not generated.
-    def calibAccel(self, _count=1000):
-        print ("Accel calibration start")
-        _sum    = [0,0,0]
+    ## Read magneto
+    #  @param [in] self The object pointer.
+    #  @retval x : X-magneto data
+    #  @retval y : y-magneto data
+    #  @retval z : Z-magneto data
+    def readMagnet(self):
+        x=0
+        y=0
+        z=0
 
-        # get data sample.
-        for _i in range(_count):
-            _data   = self.read_acc()
-            _sum[0] += _data[0]
-            _sum[1] += _data[1]
-            _sum[2] += _data[2]
+        # check data ready
+        drdy = Mpu9250.bus.read_byte_data(Mpu9250.AK8963_SLAVE_ADDRESS, Mpu9250.AK8963_ST1)
+        if drdy & 0x01 :
+            data = Mpu9250.bus.read_i2c_block_data(Mpu9250.AK8963_SLAVE_ADDRESS, Mpu9250.AK8963_MAGNET_OUT, 7)
 
-        # Make the average value an offset.
-        self.offsetAccelX   = -1.0 * _sum[0] / _count
-        self.offsetAccelY   = -1.0 * _sum[1] / _count
-        self.offsetAccelZ   = -1.0 * ((_sum[2] / _count ) - 1.0)    # 重力分を差し引く
+            # check overflow
+            if (data[6] & 0x08)!=0x08:
+                x = self.dataConv(data[0], data[1])
+                y = self.dataConv(data[2], data[3])
+                z = self.dataConv(data[4], data[5])
 
-        # I want to register an offset value in a register. But I do not know the behavior, so I will put it on hold.
+                x = round(x * self.mres * self.magXcoef, 3)
+                y = round(y * self.mres * self.magYcoef, 3)
+                z = round(z * self.mres * self.magZcoef, 3)
 
-        print ("Accel calibration complete")
-        return self.offsetAccelX, self.offsetAccelY, self.offsetAccelZ
+        return x, y, z
 
-    # Calibrate the gyro sensor
-    # Assumption that no rotation occurs on each axis
-    def calibGyro(self, _count=1000):
-        print ("Gyro calibration start")
-        _sum    = [0,0,0]
+    ## Read temperature
+    #  @param [out] temperature temperature(degrees C)
+    def readTemperature(self):
+        data = Mpu9250.bus.read_i2c_block_data(self.address, Mpu9250.TEMP_OUT, 2)
+        temp = self.dataConv(data[1], data[0])
 
-        # get data sample
-        for _i in range(_count):
-            _data   = self.read_gyro()
-            _sum[0] += _data[0]
-            _sum[1] += _data[1]
-            _sum[2] += _data[2]
+        temp = round((temp / 333.87 + 21.0), 3)
+        return temp
 
-        # Make the average value an offset.
-        self.offsetGyroX    = -1.0 * _sum[0] / _count
-        self.offsetGyroY    = -1.0 * _sum[1] / _count
-        self.offsetGyroZ    = -1.0 * _sum[2] / _count
+    ## Data Convert
+    # @param [in] self The object pointer.
+    # @param [in] data1 LSB
+    # @param [in] data2 MSB
+    # @retval Value MSB+LSB(int 16bit)
+    def dataConv(self, data1, data2):
+        value = data1 | (data2 << 8)
+        if(value & (1 << 16 - 1)):
+            value -= (1<<16)
+        return value
 
-        # I want to register an offset value in a register. But I do not know the behavior, so I will put it on hold.
-
-        print ("Gyro calibration complete")
-        return self.offsetGyroX, self.offsetGyroY, self.offsetGyroZ
-
-    # methods for reading sensor's data
-    def read(self, name=False)->"return data depending on the option 'name'":
-
+    def read(self, name:bool=False):
+        
         if name:
-            return self._read_with_name
+            return self.__read_with_name()
         else:
-            return self._read_no_name
+            return self.__read_no_name()
 
-    def _read_no_name(self)->"return sensor data as tuple without name":
-        acc = self.read_acc()
-        gyr = self.read_gyro()
-        mag = self.read_mag()
-        data = tuple([obj[i] for obj in [acc, gyr, mag] for i in range(3)])
+    def __read_no_name(self):
+        return tuple( list(self.readAccel()) + list(self.readGyro()) + list(self.readMagnet()) )
+
+    def __read_with_name(self):
+        data = {}
+        for name, val in zip(self.data_name, self.__read_no_name()):
+            data.update({name: val})
+
         return data
-
-    def _read_with_name(self)->"return sensor data as dict with names":
-        return dict(self.data_name, self._read_no_name)
-
-    def read_acc(self):
-        data    = self.bus.read_i2c_block_data(self.address, 0x3B ,6)
-        rawX    = self.accelCoefficient * self.u2s(data[0] << 8 | data[1]) + self.offsetAccelX
-        rawY    = self.accelCoefficient * self.u2s(data[2] << 8 | data[3]) + self.offsetAccelY
-        rawZ    = self.accelCoefficient * self.u2s(data[4] << 8 | data[5]) + self.offsetAccelZ
-        return rawX, rawY, rawZ
-
-    def read_gyro(self):
-        data    = self.bus.read_i2c_block_data(self.address, 0x43 ,6)
-        rawX    = self.gyroCoefficient * self.u2s(data[0] << 8 | data[1]) + self.offsetGyroX
-        rawY    = self.gyroCoefficient * self.u2s(data[2] << 8 | data[3]) + self.offsetGyroY
-        rawZ    = self.gyroCoefficient * self.u2s(data[4] << 8 | data[5]) + self.offsetGyroZ
-        return rawX, rawY, rawZ
-
-    def read_mag(self):
-        if self.MAG_ACCESS == False:
-            # Magnetometric sensor is disable.
-            raise Exception('002 Access to a sensor is invalid.')
-
-        # Pre-processing
-        if self.MAG_MODE==self.MAG_MODE_SINGLE:
-            # In the case of single measurement mode, it becomes Power Down simultaneously with the end of measurement. so, change the mode again.
-            if self.MAG_BIT==14:                # output 14bit
-                _writeData      = 0x01
-            else:                               # output 16bit
-                _writeData      = 0x11
-            self.bus.write_i2c_block_data(self.addrAK8963, 0x0A, [_writeData])
-            sleep(0.01)
-
-        elif self.MAG_MODE==self.MAG_MODE_SERIAL_1 or self.MAG_MODE==self.MAG_MODE_SERIAL_2:
-            status  = self.bus.read_i2c_block_data(self.addrAK8963, 0x02 ,1)
-            if (status[0] & 0x02) == 0x02:
-                # Sensing again as there is data overrun.
-                self.bus.read_i2c_block_data(self.addrAK8963, 0x09 ,1)
-
-        elif self.MAG_MODE==self.MAG_MODE_EX_TRIGER:
-            # Unimplemented
-            return
-
-        elif self.MAG_MODE==self.MAG_MODE_POWERDOWN:
-            raise Exception('003 Mag sensor power down')
-
-        # Check the ST1 register. Check whether data can be read.
-        status  = self.bus.read_i2c_block_data(self.addrAK8963, 0x02 ,1)
-        while (status[0] & 0x01) != 0x01:
-            # Wait until data ready state.
-            sleep(0.01)
-            status  = self.bus.read_i2c_block_data(self.addrAK8963, 0x02 ,1)
-
-        # read data.
-        data    = self.bus.read_i2c_block_data(self.addrAK8963, 0x03 ,7)
-        rawX    = self.u2s(data[1] << 8 | data[0])  # Lower bit is ahead.
-        rawY    = self.u2s(data[3] << 8 | data[2])  # Lower bit is ahead.
-        rawZ    = self.u2s(data[5] << 8 | data[4])  # Lower bit is ahead.
-        st2     = data[6]
-
-        # check overflow.
-        if (st2 & 0x08) == 0x08:
-            # Since it is an overflow, the correct value is not obtained
-            raise Exception('004 Mag sensor over flow')
-
-        # Conversion to μT
-        if self.MAG_BIT==16:    # output 16bit
-            rawX    = rawX * self.magCoefficient16
-            rawY    = rawY * self.magCoefficient16
-            rawZ    = rawZ * self.magCoefficient16
-        else:                   # output 14bit
-            rawX    = rawX * self.magCoefficient14
-            rawY    = rawY * self.magCoefficient14
-            rawZ    = rawZ * self.magCoefficient14
-
-        return rawX, rawY, rawZ
-
-    def read_temp(self):
-        data    = self.bus.read_i2c_block_data(self.address, 0x65 ,2)
-        raw     = data[0] << 8 | data[1]
-        return ((raw - self.offsetRoomTemp) / self.tempSensitivity) + 21
-
-    #The data from the sensor is treated as unsigned. So, converted to signed. (limited to 16 bits)
-    def u2s(self,unsigneddata):
-        if unsigneddata & (0x01 << 15) : 
-            return -1 * ((unsigneddata ^ 0xffff) + 1)
-        return unsigneddata
 
 
 class Gps:
@@ -641,13 +597,14 @@ class Gps:
     def setup(self):     
         while self.read() == (0, 0):
             sleep(0.5)
+            break
         
     def read(self, name=False):
 
         if name:
-            return self._read_with_name
+            return self._read_with_name()
         else:
-            return self._read_no_name
+            return self._read_no_name()
 
     def _read_no_name(self):
 
@@ -665,20 +622,30 @@ class Gps:
         return self.gps.latitude[0], self.gps.longitude[0]
 
     def _read_with_name(self):
-        return dict(self.data_name, self._read_no_name)
+        data = {}
+        for name, val in zip(self.data_name, self._read_no_name()):
+            data.update({name: val})
+
+        return data
 
 
 
 if __name__ == "__main__":
+
+    from pprint import pprint
     
-    ADDR_BME280 = 0x76
+    ADDR_BME280 = 0x77
     ADDR_APDS9301 = 0x39
     ADDR_MPU9250 = 0x68
-    SERIAL_PORT_GPS = "/dev/ttyUSB0"
+    PORT_GPS = "/dev/ttyUSB0"
 
-    sensors = {ADDR_BME280: Bme280, ADDR_APDS9301: Apds9301, ADDR_MPU9250: Mpu9250, SERIAL_PORT_GPS: Gps}
+    sensors = {ADDR_BME280: Bme280, ADDR_APDS9301: Apds9301, ADDR_MPU9250: Mpu9250, PORT_GPS: Gps}
     logger = Logger(sensors)
 
+    init_time = time()
+
     while True:
-        print("data:", logger.read())
+        print("time: ", time() - init_time)
+        pprint(logger.read())
+        print()
         sleep(1)
